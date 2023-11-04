@@ -1,0 +1,8 @@
+GoTo 0x48 0
+Get SIZE LONG
+Math SIZE -= 4
+GoTo 0x4C 0
+SavePos OFFSET
+Get NAME basename
+String NAME += ".ctpk"
+Log NAME OFFSET SIZE
