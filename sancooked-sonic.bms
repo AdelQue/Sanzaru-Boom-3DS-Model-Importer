@@ -1,0 +1,56 @@
+goto 0 0 SEEK_END
+savepos fileSize
+#print %fileSize%
+
+goto 0x20
+get CHUNKS long
+get DUMMY long
+for i = 0 < CHUNKS
+	savepos curOffset
+	if curOffset = fileSize
+		break
+	endif
+
+	getdstring type 0x04
+	get typeSize long
+	math typeSize + 0x04
+	#print %typeSize%
+
+	set typeEnd = 0
+	math typeEnd + typeSize
+	math typeEnd + curOffset
+	
+	savepos backJump
+	get switch long
+	if switch = 1 
+		GetDString typeName 0x20
+		log typeName curOffset typeSize
+		goto typeEnd 
+
+	elif switch != 1
+		goto backJump
+		for k
+			savepos subOffset
+			if subOffset = typeEnd
+				break
+			endif
+			
+			
+			GetDString subType 0x4
+			get subSize long
+			math subSize + 0x4
+
+			set name subType
+			string Name + _
+			string Name + k
+			string Name + .
+			
+			log name subOffset subSize
+			
+			set subEnd = 0
+			math subEnd + subSize
+			math subEnd + subOffset
+			goto subEnd
+		next k
+	endif
+next i
