@@ -1,6 +1,6 @@
 # Sanzaru/Sonic Boom 3DS Model Importer for Blender
 
-A model importer for Sanzaru format models, specifically for 3DS Sonic Boom games. Importer currently supports full mesh data (UVs, normals, vertex colors, vertex weights), skeleton data, material names, and texture names. 
+A model importer for Sanzaru format models, specifically for 3DS Sonic Boom games. Importer currently supports full mesh data (UVs, normals, vertex colors, vertex weights), skeleton data, object names, material names, and texture names. 
 
 
 ## Requirements:
@@ -31,4 +31,4 @@ A model importer for Sanzaru format models, specifically for 3DS Sonic Boom game
 
 
 ## Thanks:
-[@ik-01](https://github.com/ik-01) for game decompilation and finding various format specs 
+[@ik-01](https://github.com/ik-01) for game decompilation and providing various format specs 
