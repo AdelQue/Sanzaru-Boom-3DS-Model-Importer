@@ -1,13 +1,14 @@
-import os
-import re
-import struct
 import bpy
 import bmesh
-import math
+import struct
 import mathutils
+import os
+import math
+from io import BytesIO 
+from re import findall
 
 class SanzaruGEOB:
-    def __init__(self):
+    def __init__(self, file):
         self.name = ""
         self.bone_count = 0
         self.bone_transforms = []
@@ -15,14 +16,11 @@ class SanzaruGEOB:
         self.bone_parents = []
         self.hash = 0        
 
-    def parse(self, file):
-        
         # GEOB - GEOB Identifier 
         magic = file.read(4)
         if magic != b"GEOB":
             invalid_format("GEOB", file.tell(), magic) 
         geob_length = struct.unpack("<I", file.read(4))[0]
-
 
         # GEOH - Geo Header           
         magic = file.read(4)
@@ -74,7 +72,7 @@ class SanzaruGEOB:
                 parent_name_hash = str(parent_name_hash)
 
                 y_basis = z_basis.cross(x_basis)
-                quat = mathutils.Matrix((x_basis,y_basis,z_basis)).transposed().to_quaternion()
+                quat = mathutils.Matrix((z_basis,x_basis,y_basis)).transposed().to_quaternion()
                 transforms = (position, quat)
                 
                 self.bone_names.append(bone_name)
@@ -113,8 +111,10 @@ class SanzaruGEOB:
             
         bpy.ops.object.add(type='ARMATURE',enter_editmode=1)
         obj = bpy.context.active_object
-        obj.name = self.name + "_skel"
-        obj.data.name = self.name + "_skel"
+        
+        name = self.name + "_skeleton"
+        obj.name = name
+        obj.data.name = name
         
         # Create bones
         for i in range(self.bone_count):
@@ -135,13 +135,23 @@ class SanzaruGEOB:
 
         bpy.ops.object.mode_set(mode='EDIT')
 
+
         for i, bone in enumerate(obj.data.edit_bones): # Set parents
             if self.bone_parents[i] != "@none":
                 parent_bone = self.bone_parents[i]
                 bone.parent = obj.data.edit_bones[parent_bone]
             bone.use_local_location = True
         
-        
+        # Calculate bone lengths
+        for bone in obj.data.edit_bones:
+            test_lengths = [0.1] # Min Length
+            if bone.children:
+                for child_bone in bone.children:
+                    temp_length = (bone.head - child_bone.head).length
+                    if 1.4 > temp_length > 0.1: # Arbitrary length limit
+                        test_lengths.append(temp_length)
+            bone.length = max(test_lengths)
+
         
         # Debug only
         #for i in range(len(obj.data.edit_bones)):
@@ -164,7 +174,6 @@ class SanzaruSubmesh:
             self.idx = []
             self.color = []
             self.weight = []
-            
         
     class Face:
         def __init__(self):
@@ -175,15 +184,13 @@ class SanzaruSubmesh:
         def __init__(self):
             self.pal = []
 
-    def __init__(self):
+    def __init__(self, file, geo):
         self.vertex = self.Vertex()
         self.face = self.Face()
         self.weight = self.Weight()
         self.length = 0
         self.vertex_scale = 1.0
         self.material_hash = 0
-    
-    def parse(self, file, geo):
         self.get_weights = False
         if geo.bone_count:
             self.get_weights = True
@@ -204,7 +211,6 @@ class SanzaruSubmesh:
         mhdr_length = struct.unpack("<I", file.read(4))[0]
         mhdr_version = struct.unpack("<B", file.read(1))[0]
         self.vertex.count = struct.unpack("<h", file.read(2))[0]
-
         idx_count = struct.unpack("<h", file.read(2))[0]
         self.face.count = int(idx_count / 3)
         file.read(1) # primitive type
@@ -285,8 +291,10 @@ class SanzaruSubmesh:
             bones = geo.pose_bones
         index = str(index).zfill(2)
         
+        name = f"{geo.name}_submesh{index}"
+        
         bm = bmesh.new()
-        me = bpy.data.meshes.new(f"{geo.name}_submesh{index}")
+        me = bpy.data.meshes.new(name)
 
         for vertex in self.vertex.coord:
             bm.verts.new(vertex)
@@ -317,7 +325,7 @@ class SanzaruSubmesh:
         bm.free()
 
         # Add the mesh to the scene
-        obj = bpy.data.objects.new(f"{geo.name}_submesh{index}", me)
+        obj = bpy.data.objects.new(name, me)
         bpy.context.collection.objects.link(obj)
 
         # Select and make active
@@ -374,15 +382,60 @@ class SanzaruSubmesh:
     
 class SanzaruMaterial:
     def __init__(self, file):
-        self.name = ""
-        self.dif_color = (1, 1, 1)
-        self.spec_color = (0.5, 0.5, 0.5)
-        self.clamp_mode_uv = (0, 0)
-        self.hash
-        self.tex_hash = 0
+        self.material_name = ""
+        self.texture_name = ""
+        self.material_hash = 0
+        self.texture_hash = 0
 
-class SanzaruTexture:
-    "TEXR goes here"
+        # MATL - MATL Identifier 
+        magic = file.read(4)
+        if magic != b"MATL":
+            invalid_format("MATL", file.tell(), magic) 
+        matl_length = struct.unpack("<I", file.read(4))[0]
+
+        # MTLH - Material Header           
+        magic = file.read(4)
+        offset = file.tell()
+        if magic != b"MTLH":
+            invalid_format("MTLH", file.tell(), magic)
+        mtlh_length = struct.unpack("<I", file.read(4))[0]
+        mtlh_version = struct.unpack("<B", file.read(1))[0]
+        self.texture_hash = struct.unpack("<i", file.read(4))[0]
+        file.read(0x3C) # Unknown data
+        self.material_hash = struct.unpack("<i", file.read(4))[0]
+        self.material_name = file.read(0x20).split(b'\x00')[0].decode()
+        # Material parameters (dif and spec color, uv clamp modes, etc)
+    
+    def parse_tex(self, file):
+        # TEXR - TEXR Identifier 
+        magic = file.read(4)
+        if magic != b"TEXR":
+            invalid_format("TEXR", file.tell(), magic) 
+        texr_length = struct.unpack("<I", file.read(4))[0]
+
+        # TXRH - Material Header           
+        magic = file.read(4)
+        offset = file.tell()
+        if magic != b"TXRH":
+            invalid_format("TXRH", file.tell(), magic)
+        offset = file.tell()
+        txrh_length = struct.unpack("<I", file.read(4))[0]
+        txrh_version = struct.unpack("<B", file.read(1))[0]
+        tex_hash = struct.unpack("<i", file.read(4))[0]
+        if tex_hash != self.texture_hash:
+            raise ValueError("Hash in material and texture files do not match")
+        file.read(7) # Unknown, padding?
+        self.texture_name = file.read(0x20).split(b'\x00')[0].decode()
+        file.read(txrh_length - file.tell() + offset)
+        
+        # T3DS - Container for CTPK texture
+        magic = file.read(4)
+        if magic != b"T3DS":
+            invalid_format("T3DS", file.tell(), magic) 
+        t3ds_length = struct.unpack("<I", file.read(4))[0]
+        
+        # Todo, EXT1 texture decompression for CTPK....
+        
 
 def invalid_format(txt, loc, value):
     loc_hex = hex(loc)[:2] + hex(loc)[2:].upper() # For nicer readable hex offsets
@@ -394,6 +447,20 @@ def invalid_format(txt, loc, value):
         raise ValueError(wrong_data)
 
 
+def find_file(folder, suffix, target_hash, offset): # Find desired file based on hash
+    filelist = os.listdir(folder)
+    for file in filelist:
+        if file.endswith(suffix):
+            with open(folder + file, "rb") as file_test:
+                file_test.read(offset)
+                file_hash = struct.unpack("<i", file_test.read(4))[0]
+                if file_hash == target_hash:
+                    print(file)
+                    file_test.seek(0)
+                    file_contents = file_test.read()
+                    return BytesIO(file_contents)
+    raise ValueError(f"Could not find associated {suffix} file")
+
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # # # # # # # # # # # # # # # # # BEGIN # # # # # # # # # # # # # # # # #
@@ -401,48 +468,33 @@ def invalid_format(txt, loc, value):
         
 print("----------------Start----------------")
 
-folder = "C:/Users/adelj/Documents/Blender/modelsresource/SonicBoom/SC-ROM/Levels/IGCCharacters/Amy/"
-
+folder = "C:/Users/adelj/Documents/Blender/modelsresource/SonicBoom/FI-ROM/Levels/IGCCharacters/Knuckles_Map/"
 #folder = "C:/Users/adelj/Documents/Blender/modelsresource/SonicBoom/FI-ROM/Levels/IGCStages/IGC_Cut04/"
+
 filelist = os.listdir(folder)
+geo_filename = "GEOB_9.geo"
 
-#geo_filename = "GEOB_805.geo"
-geo_filename = "GEOB_8.geo"
-geo_file = open(folder + geo_filename, "rb")
 
-geo = SanzaruGEOB()
-geo.parse(geo_file)
+
+with open(folder + geo_filename, "rb") as geo_file:
+    geo = SanzaruGEOB(geo_file)
+
+# TODO: Screw this
+collection = bpy.data.collections.new(geo.name)
+bpy.context.scene.collection.children.link(collection) 
+layer_collection = bpy.context.view_layer.layer_collection.children[collection.name]
+bpy.context.view_layer.active_layer_collection = layer_collection
+
 if geo.bone_count:
     skel_obj = geo.make_skel()
 else:
     skel_obj = 0
 
-mes_file = 0
-mat_file = 0
-tex_file = 0
-
-
-for file in filelist:
-    if file.endswith(".mes"):
-        mes_file_test = open(folder + file, "rb")
-        mes_file_test.read(0x21)
-        mes_hash = struct.unpack("<i", mes_file_test.read(4))[0]
-        if mes_hash == geo.hash:
-            print(file)
-            mes_file = mes_file_test
-            break
-        else:
-            mes_file_test.close()
-
-if not mes_file:
-    raise ValueError("Could not find associated .mes file")
-    
-
-# No submesh count found in files. Find based on submesh header count instead
+mes_file = find_file(folder, ".mes", geo.hash, 0x21)
+# Could not locate value for submesh count. Finding instead based on submesh header count instead
 mes_file.seek(0)
-mesh_count = len(re.findall(b'SMSH', mes_file.read()))
+mesh_count = len(findall(b'SMSH', mes_file.read()))
 mes_file.seek(0)
-
 
 # Mesh File Identifier
 magic = mes_file.read(4)
@@ -460,19 +512,60 @@ mes_file.read(0x10) # 4 Unknown floats
 mesh_hash = struct.unpack("<i", mes_file.read(4))[0]
 mes_file.read(3) # Byte alignment
 
+material_names = {}
+texture_names = {}
+
+# Create submeshes
 for i in range(mesh_count):
-    submesh = SanzaruSubmesh()
-    submesh.parse(mes_file, geo)
+    submesh = SanzaruSubmesh(mes_file, geo)
     mesh_obj = submesh.make_mesh(geo, i)
     if skel_obj:
         mesh_obj.parent = skel_obj
         bpy.ops.object.modifier_add(type='ARMATURE')
         bpy.data.objects[mesh_obj.name].modifiers["Armature"].object = skel_obj
+    
+    mat_hash = str(submesh.material_hash)
+    if mat_hash not in material_names:
+        mat_file = find_file(folder, ".mat", submesh.material_hash, 0x51)
+        mat = SanzaruMaterial(mat_file)
+        material = bpy.data.materials.new(mat.material_name)
+        material_names.update({mat_hash:material.name}) # Assign Blender material name in case duplicates exist
+        material.use_nodes = True
+        
+        # Find texture if not already found
+        tex_hash = str(mat.texture_hash)
+        if tex_hash not in texture_names:
+            tex_file = find_file(folder, ".tex", mat.texture_hash, 0x11)
+            mat.parse_tex(tex_file)
+            # TODO: Import actual texture
+            texture = bpy.data.images.new(mat.texture_name, 64, 64)
+            texture = bpy.data.images.new(mat.texture_name.split(".")[0], 64, 64)
+            texture.generated_color = (0.8,0.8,0.8,1)
+            texture_name = texture.name
+            texture_names.update({tex_hash:texture_name})
+        else:
+            texture_name = texture_names[tex_hash]
+            texture = bpy.data.textures.get(texture_name)
+            
+        main_node = material.node_tree.nodes["Principled BSDF"]
+        texture_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
+        texture_node.image = texture
+        material.node_tree.links.new(texture_node.outputs['Color'], main_node.inputs['Base Color'])
+    else:
+        material_name = material_names[mat_hash]
+        material = bpy.data.materials.get(material_name)
 
-geo_file.close()
-mes_file.close()
+    mesh_obj.data.materials.append(material)
+
+skel_obj.rotation_euler = ((math.pi / 2),0,0)
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# # # # # # # # # # # # # # # # # TESTS # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #     
 
 '''
+# Get names of GEOB files
 for filename in filelist:
     if filename.endswith(".geo"):
         geo_file_test = open(folder + filename, "rb")
@@ -481,14 +574,8 @@ for filename in filelist:
         print(filename + " : " + geo_file_name)
 '''
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-# # # # # # # # # # # # # # # # # TESTS # # # # # # # # # # # # # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #     
-
 print()
-
 print("---GEOB TESTS---")
-
 print(f"Name: {geo.name}")
 if geo.bone_count:
     print(f"Bone Count: {geo.bone_count}")
@@ -497,9 +584,5 @@ if geo.bone_count:
     print(f"Bone Parent: {geo.bone_parents[1]}")
 print(f"Hash: {geo.hash}")
 print()
-
-
-
-
 
 print("----------------End----------------")
