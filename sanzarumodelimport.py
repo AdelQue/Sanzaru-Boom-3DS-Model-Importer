@@ -259,7 +259,7 @@ class SanzaruSubmesh:
         
         for _ in range(self.vertex.count):
             vertex_pos = mathutils.Vector(struct.unpack("<fff", file.read(12)))
-            #vertex_pos *= self.vertex_scale
+            vertex_pos *= self.vertex_scale
             vertex_color = struct.unpack("<BBBB", file.read(4)) 
             uv_pos = struct.unpack("<ff", file.read(8))
             uv_pos = (uv_pos[0], -uv_pos[1] + 1) # Invert UVs
