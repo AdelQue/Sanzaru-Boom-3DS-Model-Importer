@@ -31,4 +31,4 @@ A model importer for Sanzaru format models, specifically for 3DS Sonic Boom game
 
 
 ## Thanks:
-[@ik-01](https://github.com/ik-01) for game decompilation and providing various format specs 
+[@ik-01](https://github.com/ik-01) for game executible research and providing various format specs 
