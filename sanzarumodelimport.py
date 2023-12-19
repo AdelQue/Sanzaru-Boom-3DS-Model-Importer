@@ -259,7 +259,7 @@ class SanzaruSubmesh:
         
         for _ in range(self.vertex.count):
             vertex_pos = mathutils.Vector(struct.unpack("<fff", file.read(12)))
-            vertex_pos *= self.vertex_scale
+            #vertex_pos *= self.vertex_scale # Scale applied to mesh to apply non-destructively
             vertex_color = struct.unpack("<BBBB", file.read(4)) 
             uv_pos = struct.unpack("<ff", file.read(8))
             uv_pos = (uv_pos[0], -uv_pos[1] + 1) # Invert UVs
@@ -509,6 +509,7 @@ class ImportSanzaruModel(Operator, ImportHelper):
         for i in range(mesh_count):
             submesh = SanzaruSubmesh(mes_file, geo)
             mesh_obj = submesh.make_mesh(geo, i)
+            mesh_obj.scale *= submesh.vertex_scale
             if skel_obj:
                 mesh_obj.parent = skel_obj
                 bpy.ops.object.modifier_add(type='ARMATURE')
