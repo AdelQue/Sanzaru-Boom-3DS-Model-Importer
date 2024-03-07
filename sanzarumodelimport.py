@@ -134,8 +134,6 @@ class SanzaruGEOB:
         for i in range(self.bone_count):
             edit_bone = obj.data.edit_bones.new(self.bone_names[i])
             edit_bone.use_connect = False
-            edit_bone.use_inherit_rotation = True
-            edit_bone.use_inherit_scale = True
             edit_bone.use_local_location = False
             edit_bone.head = self.bone_transforms[i][0]
             edit_bone.tail = edit_bone.head + mathutils.Vector((0,0.1,0))
@@ -313,8 +311,11 @@ class SanzaruSubmesh:
             bm.verts.new(vertex)
         bm.verts.ensure_lookup_table()
 
-        for face in self.face.idx:
-            bm.faces.new([bm.verts[i] for i in face])
+        for face in self.face.idx: #Some faces show up twice for some reason in the file, blender doesn't like this
+            try:
+                bm.faces.new([bm.verts[i] for i in face])
+            except:
+                continue
         bm.faces.ensure_lookup_table()
         
         bm.to_mesh(me) # Needed before applying UVs
