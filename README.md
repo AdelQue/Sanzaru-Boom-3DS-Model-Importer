@@ -1,36 +1,40 @@
 # Sanzaru/Sonic Boom 3DS Model Importer for Blender
 
-A model importer for Sanzaru format models, specifically for 3DS Sonic Boom games. Importer currently supports full mesh data (UVs, normals, vertex colors, vertex weights), skeleton data, object names, material names, and texture names. 
+A WIP Blender model importer for Sly Cooper: Thieves in Time(and Bentley's Hackpack), primarily for PS3. Right Now the importer only works for static meshes as PS3 skeletal meshes use an entirely different block that uses edge intrices rather than vertex intrices, so it may be a while(if ever) when it starts working. The Vita models(including skeletal as that doesn't sue edge intrices there) can work with the script if the script is modified for endianess, but I haven't fount a way to switch between them programmatically.
 
 
 ## Requirements:
-[QuickBMS](https://aluigi.altervista.org/quickbms.htm) for sancooked archive unpacking and CTPK unpacking
+[QuickBMS](https://aluigi.altervista.org/quickbms.htm) for sancooked archive unpacking and CTEX to GTF conversion
 
-[SwitchToolbox](https://github.com/KillzXGaming/Switch-Toolbox/releases) for extracting CTPK textures
+gtf2dds for converting GTF textures to DDS textures
 
 ## Installation:
 - In Blender, go to Edit > Preferences... > Add-ons > Install... 
-- Select sanzarumodelimport.py
+- Select sanzarumodelimportSly.py
 - Ensure Import-Export: Sonic Boom/Sanzaru Model Importer is checked
 
 ## Instructions:
-- Run QuickBMS with sancooked-sonic.bms, select your sancooked archive, extract it and ensure all extracted files remain in the same folder with each other at all times
+- Run QuickBMS with sancooked_named_files.bms, select your sancooked archive, extract it and ensure all extracted files remain in the same folder with each other at all times
 
 ### Model Import:
-- In Blender, go to go to File > Import > Sonic Boom/Sanzaru Model
+- In Blender, go to go to File > Import > Sly Cooper/Sanzaru Model
 - Select a .geo model from an extracted sancooked archive
 
 ### Texture Extraction:
-- Run QuickBMS with tex2ctpk.bms, select all your .tex files, and extract the files to convert them to .ctpk
-- Open the .ctpk file with Siwtch Toolbox, navigate into the archive and select your texture
-- Right click, export the texture to your desired file format
+- Run QuickBMS with tex2gtf.bms, select all your .tex files, and extract the files to convert them to .gtf
+- Drag all for .gtf files to gtf2dds to convert them to dds
 
 ### Planned features:
-- Texture parsing within Blender
-- Proper GEOB filenames
+- PS3 Skeletal Meshes
+- PS3/Vita switching
+- Full level instancing
 
 
 ## Thanks:
 - [@ik-01](https://github.com/ik-01) for game executible research and providing various format specs 
 
 - [killercracker on vg-resource](https://www.vg-resource.com/thread-29953-post-624230.html#pid624230) for the original QuickBMS script
+
+- [@sleepyzay](https://github.com/sleepyzay) for other QuickBMS script
+
+- [@AleQue](https://github.com/AdelQue) for original Sonic importer
