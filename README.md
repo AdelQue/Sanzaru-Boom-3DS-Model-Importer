@@ -1,4 +1,4 @@
-# Sanzaru/Sonic Boom 3DS Model Importer for Blender
+# Sanzaru/Sly Cooper Model Importer for Blender
 
 A WIP Blender model importer for Sly Cooper: Thieves in Time(and Bentley's Hackpack), primarily for PS3. Right Now the importer only works for static meshes as PS3 skeletal meshes use an entirely different block that uses edge intrices rather than vertex intrices, so it may be a while(if ever) when it starts working. The Vita models(including skeletal as that doesn't sue edge intrices there) can work with the script if the script is modified for endianess, but I haven't fount a way to switch between them programmatically.
 
@@ -11,7 +11,7 @@ gtf2dds for converting GTF textures to DDS textures
 ## Installation:
 - In Blender, go to Edit > Preferences... > Add-ons > Install... 
 - Select sanzarumodelimportSly.py
-- Ensure Import-Export: Sonic Boom/Sanzaru Model Importer is checked
+- Ensure Import-Export: Sly Cooper/Sanzaru Model Importer is checked
 
 ## Instructions:
 - Run QuickBMS with sancooked_named_files.bms, select your sancooked archive, extract it and ensure all extracted files remain in the same folder with each other at all times
