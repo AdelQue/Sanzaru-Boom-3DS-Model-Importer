@@ -4,7 +4,7 @@ A WIP Blender model importer for Sly Cooper: Thieves in Time(and Bentley's Hackp
 
 
 ## Requirements:
-[QuickBMS](https://aluigi.altervista.org/quickbms.htm) for sancooked archive unpacking and CTEX to GTF conversion
+[QuickBMS](https://aluigi.altervista.org/quickbms.htm) for sancooked archive unpacking and .tex to .gtf conversion
 
 gtf2dds for converting GTF textures to DDS textures
 
