@@ -1,0 +1,9 @@
+GoTo 0x48 0
+Get SIZE LONG
+Math SIZE -= 4
+GoTo 0x4C 0
+SavePos OFFSET
+GoTo 0x1C 0
+Get NAME string
+String NAME += ".gtf"
+Log NAME OFFSET SIZE

@@ -1,0 +1,74 @@
+#sleepyzay
+
+goto 0 0 SEEK_END
+savepos fileSize
+#print %fileSize%
+
+goto 0x14
+# Loop until the end of the file
+for i
+	savepos profOffset
+	if profOffset = fileSize
+		break
+	endif
+
+	getdstring PROF 0x04
+	get profSize long
+	math profSize + 0x04
+	#print %profSize%
+
+	getdstring PRFN 0x04
+	get prfnSize long
+	math prfnSize - 0x4
+	GetDString prfnName prfnSize
+	print %prfnName%
+	set k = 0
+
+	set profEnd profOffset
+	math profEnd + profSize
+	math profEnd - 0x08
+
+	for j
+		savepos offset
+
+		#print %offset%
+		#print %profEnd%
+
+		if offset = profEnd
+			break
+		endif
+
+		getdstring Data 0x04
+		get size long
+		math size + 0x04
+		if prfnName = GeomDef
+			getdstring Data 0x2D
+			get objName string
+		elif prfnName = Material
+			getdstring Data 0x21
+			get objName string
+		elif prfnName = Texture
+			getdstring Data 0x14
+			get objName string
+		else
+			set objName 0
+		endif		
+		set Name prfnName
+		string Name + _
+		string Name + k
+		string Name + _
+		string Name + objName
+		string Name + .
+		#print %name%
+
+		log name offset size
+
+
+		math k + 1
+		math offset + size
+		goto offset
+	next j
+
+	math profOffset + profSize
+	goto profOffset
+next i
